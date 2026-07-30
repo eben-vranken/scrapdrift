@@ -1,0 +1,84 @@
+[gd_scene format=3 uid="uid://bui136pkntin0"]
+
+[ext_resource type="Script" uid="uid://dglkwwdb8b4lx" path="res://scripts/car.gd" id="1_car"]
+[ext_resource type="Texture2D" uid="uid://dseqsaegapm2i" path="res://textures/player.png" id="2_qt2eu"]
+[ext_resource type="Texture2D" uid="uid://nxowoi6l5nyl" path="res://textures/light_cone.png" id="3_50v30"]
+[ext_resource type="Texture2D" uid="uid://b6ikn1hfi23if" path="res://textures/brake_light.png" id="4_jtldb"]
+
+[sub_resource type="RectangleShape2D" id="Shape_body"]
+size = Vector2(14, 10)
+
+[node name="Car" type="CharacterBody2D" unique_id=1320866723]
+script = ExtResource("1_car")
+drift_break_stiffness = 40.0
+drift_recover_stiffness = 15.0
+drift_damping_ratio = 0.7
+drift_speed_scrub = 100.0
+
+[node name="HeadLights" type="Node2D" parent="." unique_id=2019514999]
+
+[node name="Right" type="PointLight2D" parent="HeadLights" unique_id=1664238573]
+position = Vector2(11, 2)
+rotation = 1.5707964
+texture = ExtResource("3_50v30")
+
+[node name="Left" type="PointLight2D" parent="HeadLights" unique_id=42742350]
+position = Vector2(11, -2)
+rotation = 1.5707964
+texture = ExtResource("3_50v30")
+
+[node name="RightGlow" type="Sprite2D" parent="HeadLights" unique_id=118273645]
+modulate = Color(1, 0.8862745, 0.6666667, 0.5490196)
+light_mask = 0
+z_index = 10
+position = Vector2(11, 2)
+rotation = 1.5707964
+texture = ExtResource("3_50v30")
+
+[node name="LeftGlow" type="Sprite2D" parent="HeadLights" unique_id=995421307]
+modulate = Color(1, 0.8862745, 0.6666667, 0.5490196)
+light_mask = 0
+z_index = 10
+position = Vector2(11, -2)
+rotation = 1.5707964
+texture = ExtResource("3_50v30")
+
+[node name="BrakeLights" type="Node2D" parent="." unique_id=1876660725]
+visible = false
+position = Vector2(1.5, 0)
+rotation = -3.1415925
+
+[node name="Right" type="PointLight2D" parent="BrakeLights" unique_id=357621472]
+position = Vector2(11, 2)
+rotation = 1.5707964
+color = Color(0.7058824, 0.1254902, 0.16470589, 1)
+texture = ExtResource("4_jtldb")
+
+[node name="Left" type="PointLight2D" parent="BrakeLights" unique_id=2102139968]
+position = Vector2(11, -2)
+rotation = 1.5707964
+color = Color(0.7058824, 0.1254902, 0.16470589, 1)
+texture = ExtResource("4_jtldb")
+
+[node name="RightGlow" type="Sprite2D" parent="BrakeLights" unique_id=674103882]
+modulate = Color(0.9019608, 0.16078432, 0.19607843, 0.7058824)
+light_mask = 0
+z_index = 10
+position = Vector2(11, 2)
+rotation = 1.5707964
+texture = ExtResource("4_jtldb")
+
+[node name="LeftGlow" type="Sprite2D" parent="BrakeLights" unique_id=1503927744]
+modulate = Color(0.9019608, 0.16078432, 0.19607843, 0.7058824)
+light_mask = 0
+z_index = 10
+position = Vector2(11, -2)
+rotation = 1.5707964
+texture = ExtResource("4_jtldb")
+
+[node name="Collision" type="CollisionShape2D" parent="." unique_id=307189351]
+shape = SubResource("Shape_body")
+
+[node name="CarSprite" type="Sprite2D" parent="." unique_id=862831856]
+rotation = 1.5707964
+texture = ExtResource("2_qt2eu")

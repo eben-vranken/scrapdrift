@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://htxur0somu26"]
+
+[ext_resource type="Script" uid="uid://cq7i6mjbxdxug" path="res://scripts/crt_overlay.gd" id="1_crt"]
+[ext_resource type="Shader" uid="uid://ca6w756a70usu" path="res://shaders/crt_vhs.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_crt"]
+shader = ExtResource("2_shader")
+shader_parameter/overlay = true
+shader_parameter/scanline_count = 270.0
+shader_parameter/scanlines_opacity = 0.35
+shader_parameter/scanlines_width = 0.25
+shader_parameter/grille_count = 320.0
+shader_parameter/grille_opacity = 0.15
+shader_parameter/brightness = 1.25
+shader_parameter/warp_amount = 0.6
+shader_parameter/clip_warp = false
+shader_parameter/vignette_intensity = 0.35
+shader_parameter/vignette_opacity = 0.2000000095
+shader_parameter/roll = true
+shader_parameter/roll_speed = 0.5
+shader_parameter/roll_size = 12.0
+shader_parameter/roll_variation = 1.8
+shader_parameter/distort_intensity = 0.0
+shader_parameter/noise_opacity = 0.150000007125
+shader_parameter/noise_speed = 5.0
+shader_parameter/static_noise_intensity = 0.0
+shader_parameter/aberration = 4.7499999933364734e-08
+shader_parameter/chroma_smear = 0.10000000475
+shader_parameter/discolor = true
+shader_parameter/saturation_loss = 0.25
+shader_parameter/contrast_boost = 1.1
+shader_parameter/resolution = Vector2(1920, 1080)
+shader_parameter/pixelate = false
+
+[node name="CRTOverlay" type="CanvasLayer" unique_id=1213810636]
+layer = 100
+script = ExtResource("1_crt")
+
+[node name="Screen" type="ColorRect" parent="." unique_id=1342308814]
+material = SubResource("Mat_crt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

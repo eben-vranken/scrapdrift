@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://dfp142scgf6yl"]
+
+[ext_resource type="Script" uid="uid://dwxo4ppf4yd8r" path="res://scripts/arena.gd" id="1_arena"]
+[ext_resource type="PackedScene" uid="uid://bui136pkntin0" path="res://scenes/car.tscn" id="2_car"]
+[ext_resource type="Script" uid="uid://cqdrgfxv0u6s" path="res://scripts/track.gd" id="3_track"]
+[ext_resource type="PackedScene" path="res://scenes/crt_overlay.tscn" id="4_crt"]
+
+[node name="Arena" type="Node2D" unique_id=1666835188]
+script = ExtResource("1_arena")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=235869486]
+
+[node name="Background" type="Polygon2D" parent="." unique_id=566701006]
+color = Color(0.024, 0.024, 0.031, 1)
+polygon = PackedVector2Array(-480, -270, 480, -270, 480, 270, -480, 270)
+
+[node name="Track" type="Node2D" parent="." unique_id=1345476626]
+script = ExtResource("3_track")
+
+[node name="Car" parent="." unique_id=949647998 instance=ExtResource("2_car")]
+position = Vector2(-200, 120)
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1047362807]
+
+[node name="Readout" type="Label" parent="HUD" unique_id=151312461]
+offset_left = 6.0
+offset_top = 4.0
+offset_right = 200.0
+offset_bottom = 20.0
+theme_override_font_sizes/font_size = 12
+
+[node name="CRTOverlay" parent="." instance=ExtResource("4_crt")]
