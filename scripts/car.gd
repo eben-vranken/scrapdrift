@@ -36,11 +36,11 @@ signal crashed
 
 @export_group("Steering")
 ## Grip turn rate in radians/sec at low speed.
-@export var steer_rate := 5.0
+@export var steer_rate := 3.0
 ## Grip turn rate at top speed, as a share of steer_rate. Below 1.0 this is the
 ## whole reason the drift button exists: past a certain speed you physically
 ## cannot turn tight enough without breaking traction.
-@export_range(0.05, 1.0) var high_speed_steer_factor := 0.70
+@export_range(0.05, 1.0) var high_speed_steer_factor := 0.50
 ## Speed at which steering reaches full strength. Stops the car pivoting in place.
 @export var steer_speed_floor := 11.0
 ## Speed lost per second while cornering hard on grip, scaled by how far the
