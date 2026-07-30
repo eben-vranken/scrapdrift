@@ -6,9 +6,11 @@ extends Node2D
 ## point for as long as the slide lasts and is closed off the moment it ends, so
 ## one slide reads as one continuous scar rather than a dotted crumb trail.
 ##
-## The marks do not fade. A lap's worth of them is a record of how that lap was
-## driven, and the only thing that clears them is the surface they are painted on
-## going away, which is why this listens to the track rather than a timer.
+## The marks do not fade with age. A lap's worth of them is a record of how that
+## lap was driven, and the only things that take one away are the budget filling
+## up and the surface they are painted on going away, which is why this listens
+## to the track rather than a timer. Either way the mark fades out on its way
+## out, so rubber never blinks off the asphalt mid-corner.
 ##
 ## Draw order is tree order: this node sits between the track and the car in the
 ## scene, so marks land on top of the asphalt and under the vehicle.
@@ -54,13 +56,20 @@ const TELEPORT_GAP := 40.0
 ## what makes a full-lock slide read differently from a trimmed one.
 @export_range(0.1, 1.0) var faint_share := 0.45
 
+## Seconds a dropped mark takes to go from full to gone. Long enough to read as
+## rubber wearing off rather than a node disappearing, short enough that a wipe
+## still feels like a wipe. 0 removes marks on the spot.
+@export_range(0.0, 5.0) var fade_time := 0.75
+
 @export_group("Budget")
 ## Oldest trails are dropped past this. Two wheels means a slide costs at least
 ## two, so this is roughly half the number of slides kept.
 @export var max_marks := 96
 
 var _car: CarScript
-## Every mark on the ground, oldest first.
+## Every mark still counted against the budget, oldest first. A dropped trail
+## leaves this the moment it is dropped and spends its fade as a plain child, so
+## fading rubber never holds a slot a live mark could use.
 var _trails: Array[Line2D] = []
 ## Per wheel: the trail currently being extended, the step it was opened at, and
 ## where its last point landed.
@@ -172,8 +181,17 @@ func clear() -> void:
 		_active[wheel] = null
 
 
-## Detached before it is freed, the same way the track drops its old tiles, so a
-## wipe is visible on the frame it happens rather than the frame after.
+## Fades the mark off the asphalt and frees it once it is gone. The node stays in
+## the tree for the fade, which is safe because callers have already taken it out
+## of _trails and no wheel is writing into it.
 func _drop(line: Line2D) -> void:
-	remove_child(line)
-	line.queue_free()
+	if fade_time <= 0.0:
+		# Detached before it is freed, the same way the track drops its old tiles,
+		# so the removal is visible on the frame it happens, not the frame after.
+		remove_child(line)
+		line.queue_free()
+		return
+
+	var tween := create_tween()
+	tween.tween_property(line, "self_modulate:a", 0.0, fade_time)
+	tween.tween_callback(line.queue_free)

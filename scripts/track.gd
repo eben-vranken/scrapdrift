@@ -33,7 +33,7 @@ const Generator := preload("res://scripts/track_generator.gd")
 @export_group("Grid")
 ## Must match the tile art's pixel size. Warns on build if it does not.
 @export var tile_size := 120
-@export var grid_cols := 6
+@export var grid_cols := 7
 @export var grid_rows := 4
 ## Width of the drivable corridor. Barrier depth is whatever is left over, split
 ## evenly either side, which is what keeps openings centred on every tile edge
@@ -53,7 +53,7 @@ const Generator := preload("res://scripts/track_generator.gd")
 ## Shortest loop worth racing. Lengths are drawn roughly evenly between this and
 ## the grid's maximum, so on a large grid a low floor means the occasional stubby
 ## track rattling around an otherwise empty frame. Raise it as the grid grows.
-@export var min_loop_length := 6
+@export var min_loop_length := 10
 ## Cap on consecutive corners. Corners cost speed, so long chains are chicanes
 ## with no recovery room. 1 permits only isolated corners. How much variety a cap
 ## buys depends entirely on grid size: on 5x3 only 26 loops survive a cap of 2,
