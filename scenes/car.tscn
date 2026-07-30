@@ -10,6 +10,8 @@ size = Vector2(14, 10)
 
 [node name="Car" type="CharacterBody2D" unique_id=1320866723]
 script = ExtResource("1_car")
+steer_rate = 3.0
+high_speed_steer_factor = 0.5
 drift_break_stiffness = 40.0
 drift_recover_stiffness = 15.0
 drift_damping_ratio = 0.7

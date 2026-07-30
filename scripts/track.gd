@@ -53,7 +53,7 @@ const Generator := preload("res://scripts/track_generator.gd")
 ## Shortest loop worth racing. Lengths are drawn roughly evenly between this and
 ## the grid's maximum, so on a large grid a low floor means the occasional stubby
 ## track rattling around an otherwise empty frame. Raise it as the grid grows.
-@export var min_loop_length := 3
+@export var min_loop_length := 6
 ## Cap on consecutive corners. Corners cost speed, so long chains are chicanes
 ## with no recovery room. 1 permits only isolated corners. How much variety a cap
 ## buys depends entirely on grid size: on 5x3 only 26 loops survive a cap of 2,
