@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+; The finish trigger, sized to the checkered strip on finish.png rather than the
+; whole tile. Thin along the road (x) so a lap only counts as the car crosses the
+; actual line, and as tall as the drivable corridor (y) so it cannot be driven
+; around. LapSystem instances this, drops it on the finish cell and rotates it to
+; the track's travel direction; the strip is symmetric so only that alignment
+; matters. Tune the shape here to match the art.
+
+[sub_resource type="RectangleShape2D" id="Shape_line"]
+size = Vector2(24, 80)
+
+[node name="FinishLine" type="Area2D"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_line")

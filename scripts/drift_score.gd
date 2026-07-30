@@ -236,13 +236,25 @@ func _tier_color(index: int) -> Color:
 
 
 func _bank() -> void:
+	# Captured before the reset below, which puts multiplier back to 1. The points
+	# already carry it, but the popup shows the multiplier alongside them, so it has
+	# to be the one the combo actually landed on.
+	var landed_multiplier := multiplier
 	var earned := roundi(pending * multiplier)
 	_reset_combo()
 	if earned <= 0:
 		return
 	score += earned
-	combo_banked.emit(earned, multiplier)
+	combo_banked.emit(earned, landed_multiplier)
 	score_changed.emit(score)
+
+
+## Banks the pending combo right now, wherever the link window happens to sit.
+## For a hard stop like crossing the finish line: the run's drifts are cashed into
+## the score then rather than left hanging on the clock or carried to the next
+## track. A no-op when there is nothing pending.
+func cash_in() -> void:
+	_bank()
 
 
 ## Points that never make it into the score. The signal carries what the combo

@@ -7,6 +7,16 @@
 [ext_resource type="Script" uid="uid://b3q2871bllxx3" path="res://scripts/skid_marks.gd" id="5_skid"]
 [ext_resource type="Script" uid="uid://djjg7oyvhlvos" path="res://scripts/drift_score.gd" id="6_score"]
 [ext_resource type="Script" uid="uid://ce8deyk11r5yq" path="res://scripts/drift_popups.gd" id="7_pops"]
+[ext_resource type="Script" uid="uid://4dejmmj07pl7" path="res://scripts/lap_system.gd" id="8_laps"]
+[ext_resource type="Script" uid="uid://db2o4jbic7lld" path="res://scripts/screen_transition.gd" id="9_trans"]
+[ext_resource type="Shader" uid="uid://ch25u38rehbdc" path="res://shaders/diamond_wipe.gdshader" id="10_wipe"]
+
+[sub_resource type="ShaderMaterial" id="Mat_wipe"]
+shader = ExtResource("10_wipe")
+shader_parameter/cell_count = 14.0
+shader_parameter/progress = 0.0
+shader_parameter/spread = 0.6
+shader_parameter/cover_color = Color(0, 0, 0, 1)
 
 [node name="Arena" type="Node2D" unique_id=1666835188]
 script = ExtResource("1_arena")
@@ -34,14 +44,39 @@ script = ExtResource("6_score")
 z_index = 100
 script = ExtResource("7_pops")
 
+[node name="LapSystem" type="Node" parent="." unique_id=1782004313]
+script = ExtResource("8_laps")
+
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1047362807]
 
 [node name="Readout" type="Label" parent="HUD" unique_id=151312461]
-offset_left = 6.0
-offset_top = 4.0
-offset_right = 200.0
-offset_bottom = 20.0
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -97.0
+offset_top = -17.0
+offset_right = 97.0
+grow_horizontal = 2
+grow_vertical = 0
 theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="LapReadout" type="Label" parent="HUD" unique_id=151312463]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -97.0
+offset_top = -49.0
+offset_right = 97.0
+offset_bottom = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
 
 [node name="Score" type="Label" parent="HUD" unique_id=151312462]
 anchors_preset = 5
@@ -58,5 +93,19 @@ theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
 text = "0"
 horizontal_alignment = 1
+
+[node name="ScreenTransition" type="CanvasLayer" parent="." unique_id=1782004314]
+layer = 90
+script = ExtResource("9_trans")
+
+[node name="Screen" type="ColorRect" parent="ScreenTransition" unique_id=1782004315]
+z_index = 1
+material = SubResource("Mat_wipe")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="CRTOverlay" parent="." unique_id=96613536 instance=ExtResource("4_crt")]

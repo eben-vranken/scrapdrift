@@ -92,6 +92,11 @@ var travel_yaw := 0.0
 var drift_angle := 0.0
 var is_drifting := false
 
+## When true the car ignores all driving input and just coasts, still colliding
+## and still able to crash. Set for the victory second after the finish line, so
+## the run plays itself out instead of being steered through the celebration.
+var input_locked := false
+
 var _drift_angular_velocity := 0.0
 var _drift_rumble_timer := 0.0
 var _crash_rumble_left := 0.0
@@ -104,9 +109,15 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var steer := Input.get_axis("steer_left", "steer_right")
-	var throttle := Input.get_action_strength("accelerate")
-	var brake := Input.get_action_strength("brake")
+	# Locked out during the victory second: the car keeps its momentum and physics
+	# but the sticks read flat, so it coasts the finish rather than being driven.
+	var steer := 0.0
+	var throttle := 0.0
+	var brake := 0.0
+	if not input_locked:
+		steer = Input.get_axis("steer_left", "steer_right")
+		throttle = Input.get_action_strength("accelerate")
+		brake = Input.get_action_strength("brake")
 
 	# Drift state is decided first so the speed rules below know which set to
 	# apply this frame rather than last frame's.
@@ -162,7 +173,7 @@ func _scrub_for_cornering(steer: float, delta: float) -> void:
 ## Entry is gated on speed. Staying in a drift is gated on nothing: the only
 ## thing that ends it is the player letting go of the button.
 func _update_drift(steer: float, delta: float) -> void:
-	var held := Input.is_action_pressed("drift")
+	var held := not input_locked and Input.is_action_pressed("drift")
 	if held and not is_drifting:
 		if absf(speed) >= drift_entry_speed:
 			is_drifting = true
