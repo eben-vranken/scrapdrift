@@ -7,6 +7,7 @@ const CarScript := preload("res://scripts/car.gd")
 
 @onready var car: CarScript = $Car
 @onready var track := $Track
+@onready var skid_marks := $SkidMarks
 @onready var readout: Label = $HUD/Readout
 
 var spawn_point: Transform2D
@@ -17,6 +18,9 @@ func _ready() -> void:
 	spawn_point = track.get_spawn()
 	car.reset(spawn_point)
 	car.crashed.connect(_on_car_crashed)
+	# Every rebuild, not just the one below, so this keeps holding once the track
+	# starts regenerating on its own every few laps.
+	track.rebuilt.connect(skid_marks.clear)
 
 
 func _process(_delta: float) -> void:

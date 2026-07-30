@@ -10,6 +10,11 @@ extends Node2D
 ## piece of barrier geometry is computed from them. Moving to a different grid is
 ## three numbers in the inspector plus tile art at the matching size.
 
+## Fires once the old track is gone and the new path is known, before the new
+## geometry exists. Anything painted onto the old surface, skid marks included,
+## is stale from here on.
+signal rebuilt
+
 enum TileKind { STRAIGHT, CURVE }
 
 const TEXTURES := {
@@ -35,8 +40,8 @@ const Generator := preload("res://scripts/track_generator.gd")
 ## and lets any tile connect to any other.
 ##
 ## This is baked into the tile art as well, so changing it here alone desyncs
-## collision from the visuals. The art currently runs 24..95, so 72.
-@export var corridor_width := 72
+## collision from the visuals. The art currently runs 20..99, so 80.
+@export var corridor_width := 80
 
 @export_group("Generation")
 ## Off builds the plain perimeter loop instead, which is handy when tuning
@@ -127,6 +132,7 @@ func build(loop: Array, start_line_index: int) -> void:
 
 	path = loop
 	finish_index = start_line_index
+	rebuilt.emit()
 	if not _validate(loop):
 		return
 	_check_fit()
