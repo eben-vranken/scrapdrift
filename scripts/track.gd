@@ -106,7 +106,7 @@ func generate(seed_value := 0, length := -1) -> void:
 ## The perimeter of any grid at least 2x2 is always a legal loop with nothing but
 ## isolated corners, which makes it a safe answer at any grid size.
 func _build_fallback() -> void:
-	var loop := _perimeter_loop()
+	var loop := Generator.orient_clockwise(_perimeter_loop())
 	build(loop, maxi(0, Generator.pick_start_line(loop, _rng)))
 
 
@@ -143,7 +143,7 @@ func build(loop: Array, start_line_index: int) -> void:
 		# directions are the tile's two openings.
 		var incoming: Vector2i = cell - _at(i - 1)
 		var outgoing: Vector2i = _at(i + 1) - cell
-		_place_tile(cell, [-incoming, outgoing], i == start_line_index)
+		_place_tile(cell, [-incoming, outgoing], outgoing, i == start_line_index)
 
 
 ## Centre of a grid cell in world space. The grid is always centred on the
@@ -154,7 +154,10 @@ func cell_to_world(cell: Vector2i) -> Vector2:
 	return origin + (Vector2(cell) + Vector2(0.5, 0.5)) * tile_size
 
 
-## Where the car belongs on the grid: on the start line, pointed down the track.
+## Where the car belongs on the grid: the centre of the start line's tile, facing
+## down the track. The checkered band sits on that tile's far edge, so this is
+## half a tile short of the line rather than on top of it, and the first crossing
+## counts a lap the same way every later one does.
 func get_spawn() -> Transform2D:
 	if path.is_empty():
 		return Transform2D.IDENTITY
@@ -204,7 +207,7 @@ func _check_fit() -> void:
 		)
 
 
-func _place_tile(cell: Vector2i, openings: Array, is_finish: bool) -> void:
+func _place_tile(cell: Vector2i, openings: Array, outgoing: Vector2i, is_finish: bool) -> void:
 	var fit := _fit_tile(openings)
 	if fit.is_empty():
 		push_error("Track: no tile fits cell %s with openings %s." % [cell, openings])
@@ -215,16 +218,23 @@ func _place_tile(cell: Vector2i, openings: Array, is_finish: bool) -> void:
 		push_warning("Track: start line landed on a corner, art will not line up.")
 
 	var pos := cell_to_world(cell)
-	var rot = fit["turns"] * PI / 2.0
+	var rot: float = fit["turns"] * PI / 2.0
 
 	var art := "curve" if kind == TileKind.CURVE else "straight"
+	var sprite_rot := rot
 	if is_finish:
 		art = "finish"
+		# The other tiles are symmetric under a half turn, so the fit's rotation is
+		# as good as any. The start line is not: its checkered band sits on one
+		# edge, and that edge has to be the one the car is driving towards. Taking
+		# the rotation from the direction of travel instead of the fit is what puts
+		# the line ahead of the spawn rather than behind it.
+		sprite_rot = Vector2(outgoing).angle()
 
 	var sprite := Sprite2D.new()
 	sprite.texture = TEXTURES[art]
 	sprite.position = pos
-	sprite.rotation = rot
+	sprite.rotation = sprite_rot
 	add_child(sprite)
 
 	var body := StaticBody2D.new()

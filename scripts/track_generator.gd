@@ -21,7 +21,8 @@ extends RefCounted
 const DIRECTIONS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
 
 
-## Returns an ordered closed loop of cells, or an empty array if nothing fits.
+## Returns an ordered closed loop of cells, wound clockwise, or an empty array if
+## nothing fits.
 ##
 ## target_length of 0 tries every viable length in random order. Pass a specific
 ## even number to ask for a track of that size, which is the hook for making
@@ -46,8 +47,35 @@ static func generate(
 	for length in lengths:
 		var loop := _find_cycle(cols, rows, length, max_curve_run, rng)
 		if not loop.is_empty():
-			return loop
+			return orient_clockwise(loop)
 	return []
+
+
+## Turns a loop round so it is driven clockwise on screen, in place.
+##
+## The search walks whichever way it stumbles on first, so half the tracks it
+## returns are driven anticlockwise. A loop driven backwards is the same shape,
+## so reversing the order is the whole fix, and it means every race runs the same
+## way round however the layout came out.
+##
+## Reversal moves cell 0 to the end, so an index into the loop taken before this
+## call points somewhere else after it. Orient first, then pick the start line.
+static func orient_clockwise(loop: Array) -> Array:
+	if _signed_area(loop) < 0:
+		loop.reverse()
+	return loop
+
+
+## Twice the loop's signed area, by the shoelace formula. Grid y runs down the
+## screen rather than up it, which flips the usual sign convention: here a
+## positive area is a loop that reads clockwise to the player.
+static func _signed_area(loop: Array) -> int:
+	var total := 0
+	for i in loop.size():
+		var a: Vector2i = loop[i]
+		var b: Vector2i = loop[(i + 1) % loop.size()]
+		total += a.x * b.y - b.x * a.y
+	return total
 
 
 ## Index of a cell in the loop that sits on a straight, since the start line art

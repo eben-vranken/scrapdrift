@@ -192,8 +192,9 @@ func _make_trigger(cell: Vector2i, on_entered: Callable) -> Area2D:
 
 ## The finish, unlike the checkpoints, is a concrete scene: its collision is the
 ## checkered strip rather than the whole tile, so a lap banks as the car crosses
-## the actual line. get_spawn already gives the finish cell's position and travel
-## rotation, which is exactly the transform the strip has to sit at.
+## the actual line. get_spawn gives the finish cell's centre and travel rotation,
+## and the scene carries the offset from that centre out to the band on the far
+## edge, so the strip lands on the drawn line with the field spawned behind it.
 func _make_finish() -> Area2D:
 	var finish: Area2D = FinishLineScene.instantiate()
 	var placement := _track.get_spawn()
