@@ -28,7 +28,9 @@ const MAX_TRAIL_POINTS := 256
 ## infield.
 const TELEPORT_GAP := 40.0
 
-@export var car_path: NodePath = ^"../Car"
+## The car laying the rubber. Assigned before this node enters the tree: the
+## arena spawns one of these per player, so there is no fixed path to find it at.
+var car: CarScript
 
 @export_group("Shape")
 ## The rear axle in car-local pixels: x runs toward the nose, y across the car,
@@ -79,9 +81,9 @@ var _last_point: Array[Vector2] = []
 
 
 func _ready() -> void:
-	_car = get_node_or_null(car_path) as CarScript
+	_car = car
 	if _car == null:
-		push_error("SkidMarks: car_path does not point at a car, no marks will be laid.")
+		push_error("SkidMarks: no car was assigned, no marks will be laid.")
 		set_physics_process(false)
 		return
 

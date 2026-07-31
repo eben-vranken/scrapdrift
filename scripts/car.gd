@@ -97,11 +97,23 @@ var is_drifting := false
 ## the run plays itself out instead of being steered through the celebration.
 var input_locked := false
 
+## Which player's controls this car answers to, as an action name prefix such as
+## "p0_". Godot's actions match every device at once, so in couch co-op each car
+## reads a private copy of the driving actions bound to one pad; PlayerConfig
+## builds them. Empty falls back to the shared actions, which is what a car
+## dropped into a scene by hand gets.
+var action_prefix := ""
+
+## The pad this car rumbles, or -1 for a keyboard player, who has nothing to
+## shake. One car must never vibrate the whole room.
+var device := -1
+
 var _drift_angular_velocity := 0.0
 var _drift_rumble_timer := 0.0
 var _crash_rumble_left := 0.0
 
 @onready var _brake_lights: Node2D = $BrakeLights
+@onready var _sprite: Sprite2D = $CarSprite
 
 
 func _ready() -> void:
@@ -115,9 +127,9 @@ func _physics_process(delta: float) -> void:
 	var throttle := 0.0
 	var brake := 0.0
 	if not input_locked:
-		steer = Input.get_axis("steer_left", "steer_right")
-		throttle = Input.get_action_strength("accelerate")
-		brake = Input.get_action_strength("brake")
+		steer = Input.get_axis(_action("steer_left"), _action("steer_right"))
+		throttle = Input.get_action_strength(_action("accelerate"))
+		brake = Input.get_action_strength(_action("brake"))
 
 	# Drift state is decided first so the speed rules below know which set to
 	# apply this frame rather than last frame's.
@@ -173,7 +185,7 @@ func _scrub_for_cornering(steer: float, delta: float) -> void:
 ## Entry is gated on speed. Staying in a drift is gated on nothing: the only
 ## thing that ends it is the player letting go of the button.
 func _update_drift(steer: float, delta: float) -> void:
-	var held := not input_locked and Input.is_action_pressed("drift")
+	var held := not input_locked and Input.is_action_pressed(_action("drift"))
 	if held and not is_drifting:
 		if absf(speed) >= drift_entry_speed:
 			is_drifting = true
@@ -228,20 +240,26 @@ func _update_rumble(delta: float) -> void:
 		_stop_shake()
 
 
-## Every connected pad, so it works whichever port the controller landed on and
-## quietly does nothing on keyboard.
+## This car's pad and no other. Shaking every connected pad would be fine with
+## one player and unreadable with four, where the whole point of the rumble is
+## that it tells you what your own car is doing. Quietly does nothing on
+## keyboard, and on a pad index that is not plugged in.
 func _shake(weak: float, strong: float, duration: float) -> void:
-	for device in Input.get_connected_joypads():
-		Input.start_joy_vibration(device, weak, strong, duration)
+	if device < 0:
+		return
+	Input.start_joy_vibration(device, weak, strong, duration)
 
 
 func _stop_shake() -> void:
-	for device in Input.get_connected_joypads():
-		Input.stop_joy_vibration(device)
+	if device < 0:
+		return
+	Input.stop_joy_vibration(device)
 
 
-## Touching a barrier ends the run. Only bodies in the "wall" group count, so
-## car-to-car contact stays harmless once there are opponents.
+## Touching a barrier ends the run. Cars mask the walls layer and not their own,
+## so in couch co-op they pass clean through each other and nothing here has to
+## decide whether a nudge from another player counts; the group check stays as
+## the second line on it.
 func _check_crash() -> void:
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider() as Node
@@ -273,3 +291,14 @@ func reset(to: Transform2D) -> void:
 ## scrap scoring later.
 func slide_ratio() -> float:
 	return clampf(absf(drift_angle) / deg_to_rad(max_drift_angle_degrees), 0.0, 1.0)
+
+
+## Repaints the body into this player's colour. Only the two body shades move;
+## the outline, glass and tail lights are left as drawn, since those are what
+## keep the car readable against the asphalt. Call once the car is in the tree.
+func paint(color: Color) -> void:
+	_sprite.material = PlayerConfig.tint_material(color)
+
+
+func _action(name: String) -> String:
+	return action_prefix + name

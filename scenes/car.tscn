@@ -9,6 +9,8 @@
 size = Vector2(14, 10)
 
 [node name="Car" type="CharacterBody2D" unique_id=1320866723]
+collision_layer = 2
+collision_mask = 1
 script = ExtResource("1_car")
 drift_break_stiffness = 40.0
 drift_recover_stiffness = 15.0

@@ -42,8 +42,11 @@ const BASE_METER_COLOR := Color(0.92, 0.89, 0.83)
 ## than its resting size it has to be assumed to be when it is placed.
 const METER_PUNCH_PAD := 1.4
 
-@export var car_path: NodePath = ^"../Car"
-@export var score_path: NodePath = ^"../DriftScore"
+## The car the text is thrown off, and the score it is reading. Both assigned
+## before this node enters the tree: the arena spawns one set per player, so
+## there is no fixed place in the scene to point a path at.
+var car: CarScript
+var score: ScoreScript
 
 @export_group("Placement")
 ## Smallest distance from the car a pop is placed at. Wide text is pushed out
@@ -118,10 +121,10 @@ var _meter_pulse: Tween
 
 
 func _ready() -> void:
-	_car = get_node_or_null(car_path) as CarScript
-	_score = get_node_or_null(score_path) as ScoreScript
+	_car = car
+	_score = score
 	if _car == null or _score == null:
-		push_error("DriftPopups: car_path or score_path is wrong, no drift text will appear.")
+		push_error("DriftPopups: no car or no score was assigned, no drift text will appear.")
 		set_process(false)
 		return
 

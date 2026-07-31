@@ -57,7 +57,10 @@ signal combo_lost(points: int)
 
 signal score_changed(score: int)
 
-@export var car_path: NodePath = ^"../Car"
+## The car being scored. Assigned before this node enters the tree: the arena
+## spawns one score per player alongside the car it belongs to, so there is no
+## fixed place in the scene to point a path at.
+var car: CarScript
 
 @export_group("Earning")
 ## Points per second at full lock and top speed. Everything below is expressed in
@@ -133,9 +136,9 @@ var _linked := false
 
 
 func _ready() -> void:
-	_car = get_node_or_null(car_path) as CarScript
+	_car = car
 	if _car == null:
-		push_error("DriftScore: car_path does not point at a car, nothing will be scored.")
+		push_error("DriftScore: no car was assigned, nothing will be scored.")
 		set_physics_process(false)
 		return
 	_car.crashed.connect(_on_car_crashed)

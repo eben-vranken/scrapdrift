@@ -7,7 +7,9 @@ extends CanvasLayer
 ## finished frame by the time the shader runs.
 ##
 ## Press toggle_crt (F) to flip it off. Worth having: judging a filter like this
-## is much easier when you can A/B it against the raw image.
+## is much easier when you can A/B it against the raw image. Player one's key
+## only, since it takes the pass off everybody's screen at once and the other
+## three seats are never bound to it.
 
 @onready var screen: ColorRect = $Screen
 
@@ -18,7 +20,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("toggle_crt"):
+	if event.is_action_pressed(PlayerConfig.debug_action("toggle_crt")):
 		visible = not visible
 
 

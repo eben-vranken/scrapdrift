@@ -1,0 +1,64 @@
+[gd_scene format=3]
+
+; Unstyled on purpose. Two options, and the co-op lobby hidden behind the second
+; one. Both scripts build whatever they need at runtime, so there is nothing
+; here but the containers they build into.
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" path="res://scripts/coop_lobby.gd" id="2_lobby"]
+
+[node name="MainMenu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Menu" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Options" type="VBoxContainer" parent="Menu"]
+custom_minimum_size = Vector2(220, 0)
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Menu/Options"]
+text = "SCRAPDRIFT"
+horizontal_alignment = 1
+
+[node name="Singleplayer" type="Button" parent="Menu/Options"]
+text = "SINGLEPLAYER"
+
+[node name="Coop" type="Button" parent="Menu/Options"]
+text = "COUCH CO-OP"
+
+[node name="Lobby" type="Control" parent="."]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_lobby")
+
+[node name="Layout" type="VBoxContainer" parent="Lobby"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Title" type="Label" parent="Lobby/Layout"]
+text = "COUCH CO-OP"
+horizontal_alignment = 1
+
+[node name="Slots" type="HBoxContainer" parent="Lobby/Layout"]
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Hint" type="Label" parent="Lobby/Layout"]
+text = "A / SPACE joins, then readies    LEFT / RIGHT picks a colour    B / ESC backs out
+the race starts once everyone who joined is ready"
+horizontal_alignment = 1

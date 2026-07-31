@@ -1,48 +1,92 @@
 extends Node2D
 
-## Temporary test harness: fixed camera, a generated track, a speed readout and
-## the banked drift score. Press respawn to put the car back on the start line.
+## Temporary test harness: fixed camera, a generated track, and one to four cars
+## racing it. Press respawn to put the field back on the start line.
+##
+## Everything that belongs to a single car is spawned here, per player, rather
+## than sitting in the scene: the car itself, its rubber, its drift score and the
+## text thrown off it. The scene only holds the layers they go into, which is
+## what keeps the draw order right no matter how many players there are: rubber
+## under the cars, popups over them.
+##
+## The camera frames the whole circuit at once, which is the reason couch co-op
+## needs nothing else from the view. There is no split screen because there is
+## nothing to split; everybody is already looking at the same picture.
+##
+## What the field is comes from PlayerConfig, filled in by the menu. Run this
+## scene on its own and it falls back to one keyboard player, so testing a track
+## change does not mean going through the lobby every time.
 
+const CarScene := preload("res://scenes/car.tscn")
 const CarScript := preload("res://scripts/car.gd")
 const ScoreScript := preload("res://scripts/drift_score.gd")
+const PopupsScript := preload("res://scripts/drift_popups.gd")
+const SkidScript := preload("res://scripts/skid_marks.gd")
 const LapSystemScript := preload("res://scripts/lap_system.gd")
 
-@onready var car: CarScript = $Car
 @onready var track := $Track
-@onready var skid_marks := $SkidMarks
-@onready var drift_score: ScoreScript = $DriftScore
+@onready var skid_layer := $SkidLayer
+@onready var cars_root := $Cars
+@onready var scores_root := $Scores
+@onready var popups_root := $Popups
 @onready var lap_system: LapSystemScript = $LapSystem
 @onready var transition := $ScreenTransition
 @onready var readout: Label = $HUD/Readout
 @onready var score_readout: Label = $HUD/Score
-@onready var lap_readout: Label = $HUD/LapReadout
+@onready var board: VBoxContainer = $HUD/PlayerBoard
 
-## How long the car coasts, uncontrolled, between crossing the finish and the
-## wipe starting. Long enough to watch the run land; short enough not to drag.
+## How long the field coasts, uncontrolled, between the win and the wipe
+## starting. Long enough to watch the run land; short enough not to drag.
 const FINISH_RIDE_TIME := 1.0
 
+## The starting grid, in the spawn transform's own space: x runs down the track,
+## y across it. Two by two, far enough apart that nobody spawns inside anybody
+## and narrow enough to stay well inside the corridor. Cars pass through each
+## other, so this is only about being able to see whose car is whose at the
+## lights; nothing is being kept out of anything.
+const GRID_OFFSETS: Array[Vector2] = [
+	Vector2(0.0, -16.0),
+	Vector2(0.0, 16.0),
+	Vector2(-30.0, -16.0),
+	Vector2(-30.0, 16.0),
+]
+
+## Total rubber on the asphalt, shared out across the field. A per-car budget
+## would quadruple the line count with four players for no extra readability.
+const SKID_BUDGET := 192
+
 var spawn_point: Transform2D
-## True from the finish crossing until the new track is fully revealed. Covers
-## both the coasting second and the wipe, and is what locks out player input and
-## keeps a car that dies in that window dead.
+## True from the win until the new track is fully revealed. Covers both the
+## coasting second and the wipe, and is what locks out player input and keeps a
+## car that dies in that window dead.
 var _finishing := false
+
+var cars: Array[CarScript] = []
+var scores: Array[ScoreScript] = []
+var _skids: Array[SkidScript] = []
+## One line of the lap board per player, in grid order.
+var _lines: Array[Label] = []
+## A crowd, rather than one player with the screen to themselves. Decides which
+## HUD is shown: the single big score, or a line per player.
+var _coop := false
 
 
 func _ready() -> void:
+	PlayerConfig.ensure_players()
+	# Bound here rather than trusting whatever the menu left in the InputMap, so
+	# reloading this scene re-binds instead of racing on a stale map.
+	PlayerConfig.apply_input_map()
+	_coop = PlayerConfig.players.size() > 1
+
 	# Track builds itself in its own _ready, which runs before this one.
 	spawn_point = track.get_spawn()
-	car.reset(spawn_point)
-	car.crashed.connect(_on_car_crashed)
+	_build_field()
+
 	# Every rebuild, not just the one below, so this keeps holding once the track
 	# starts regenerating on its own every few laps.
-	track.rebuilt.connect(skid_marks.clear)
+	track.rebuilt.connect(_clear_rubber)
 
-	# Controls scale out of their top-left corner unless told otherwise, which
-	# would make the punch below throw the number sideways instead of swelling it
-	# in place.
-	score_readout.pivot_offset = score_readout.size * 0.5
-	drift_score.score_changed.connect(_on_score_changed)
-
+	lap_system.set_cars(cars)
 	lap_system.race_won.connect(_on_race_won)
 	lap_system.checkpoint_passed.connect(_on_lap_progress)
 	lap_system.lap_completed.connect(_on_lap_progress)
@@ -51,31 +95,130 @@ func _ready() -> void:
 	# The swap happens while the wipe has the screen fully black, never in view.
 	transition.covered.connect(_swap_track)
 	transition.finished.connect(_on_transition_finished)
-	_on_lap_progress()
+	_refresh_board()
 
 
 func _process(_delta: float) -> void:
+	# The speed line reads one car, so it only means anything when there is one
+	# car. In co-op each player's line on the board carries their own numbers.
+	if not readout.visible:
+		return
+	var car := cars[0]
 	var state := "DRIFT" if car.is_drifting else "GRIP"
 	readout.text = "%3d km/h  %s" % [roundi(absf(car.speed) * 1.35), state]
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# From the finish crossing through the coasting second and the wipe, the run is
-	# out of the player's hands; swallow respawn and regenerate until it is back.
+	# From the win through the coasting second and the wipe, the race is out of
+	# the players' hands; swallow respawn and regenerate until it is back.
 	if _finishing:
 		return
-	if event.is_action_pressed("respawn"):
-		car.reset(spawn_point)
-		lap_system.reset_progress()
-	elif event.is_action_pressed("regenerate"):
+	# Both of these act on the whole session rather than on one car: respawn
+	# throws the entire field back to the line and regenerate rebuilds the track
+	# under it. Bound to player one alone, so three friends on pads cannot reset
+	# a race the fourth is winning.
+	if event.is_action_pressed(PlayerConfig.debug_action("respawn")):
+		_reset_field()
+		lap_system.reset_all_progress()
+	elif event.is_action_pressed(PlayerConfig.debug_action("regenerate")):
 		track.generate()
 		spawn_point = track.get_spawn()
-		car.reset(spawn_point)
+		_reset_field()
+
+
+## Spawns a car per player and everything that hangs off one. Order matters in
+## two places: the car has to be in the tree before it can be painted, and the
+## score and popups have to be handed their car before they enter the tree,
+## since that is when they wire themselves to it.
+func _build_field() -> void:
+	# The single big score and the speed line are a one-player HUD. With a crowd
+	# they would each be showing one arbitrary player's numbers, so the board
+	# takes over and these go away.
+	readout.visible = not _coop
+	score_readout.visible = not _coop
+	if not _coop:
+		# Controls scale out of their top-left corner unless told otherwise, which
+		# would make the punch throw the number sideways instead of swelling it
+		# in place.
+		score_readout.pivot_offset = score_readout.size * 0.5
+
+	var count := PlayerConfig.players.size()
+	for slot in count:
+		var entry: Dictionary = PlayerConfig.players[slot]
+		var color: Color = PlayerConfig.color_of(entry["color"])
+
+		var car: CarScript = CarScene.instantiate()
+		car.action_prefix = PlayerConfig.prefix_for(slot)
+		car.device = entry["device"]
+		cars_root.add_child(car)
+		car.paint(color)
+		car.reset(_grid_slot(slot))
+		car.crashed.connect(_on_car_crashed.bind(slot))
+		cars.append(car)
+
+		var skids := SkidScript.new()
+		skids.car = car
+		skids.max_marks = maxi(SKID_BUDGET / count, 48)
+		skid_layer.add_child(skids)
+		_skids.append(skids)
+
+		var score := ScoreScript.new()
+		score.car = car
+		scores_root.add_child(score)
+		score.score_changed.connect(_on_score_changed.bind(slot))
+		scores.append(score)
+
+		var popups := PopupsScript.new()
+		popups.car = car
+		popups.score = score
+		popups.z_index = 100
+		popups_root.add_child(popups)
+
+		_lines.append(_make_line(color))
+
+
+## One row of the lap board. Tinted to match the car in co-op, because a line
+## that does not say at a glance whose it is may as well not be on screen; left
+## alone with one player, where there is nothing to tell apart.
+func _make_line(color: Color) -> Label:
+	var line := Label.new()
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.add_theme_font_size_override("font_size", 12)
+	if _coop:
+		line.add_theme_color_override("font_color", color)
+	board.add_child(line)
+	return line
+
+
+## Where a player starts, staggered off the start line so the field does not
+## spawn inside itself. One player keeps the line to themselves, exactly on the
+## spawn point the track hands out.
+func _grid_slot(slot: int) -> Transform2D:
+	if not _coop:
+		return spawn_point
+	var offset: Vector2 = GRID_OFFSETS[slot % GRID_OFFSETS.size()]
+	return Transform2D(spawn_point.get_rotation(), spawn_point * offset)
+
+
+func _reset_field() -> void:
+	for slot in cars.size():
+		cars[slot].reset(_grid_slot(slot))
+
+
+func _clear_rubber() -> void:
+	for skids in _skids:
+		skids.clear()
 
 
 ## The banked total only ever moves when a combo lands, so every change is worth
 ## a kick. The world-space meter carries the pending number; this is the safe one.
-func _on_score_changed(total: int) -> void:
+func _on_score_changed(total: int, slot: int) -> void:
+	# In co-op the score lives on the player's own board line, which is the only
+	# place it can be told apart from the other three.
+	_refresh_board()
+	if _coop:
+		return
+
 	score_readout.text = ScoreScript.grouped(total)
 	var tween := create_tween()
 	tween.tween_property(score_readout, "scale", Vector2.ONE * 1.3, 0.08).set_ease(Tween.EASE_OUT)
@@ -83,37 +226,44 @@ func _on_score_changed(total: int) -> void:
 	settle.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-func _on_car_crashed() -> void:
-	# A crash during the victory second stays a crash: the run is already over, so
-	# leave the car where it died rather than snapping it back to the line. Freeze
-	# it on the spot too, or it would sit against the wall re-crashing every frame.
-	# The wipe is moments away and will clear it.
+func _on_car_crashed(slot: int) -> void:
+	# A crash during the victory second stays a crash: the race is already over,
+	# so leave the car where it died rather than snapping it back to the line.
+	# Freeze it on the spot too, or it would sit against the wall re-crashing
+	# every frame. The wipe is moments away and will clear it.
 	if _finishing:
-		car.set_physics_process(false)
+		cars[slot].set_physics_process(false)
 		return
 	# Placeholder for the real instant-death handling. The combo is not dealt with
-	# here: the score watches the same signal and drops it on its own, and the lap
-	# system watches it too to clear whatever checkpoints were pending.
-	car.reset(spawn_point)
+	# here: that player's score watches the same signal and drops it on its own.
+	# The lap system does not watch it at all, since a shared signal cannot say
+	# which of four cars sent it, so the pending checkpoints are cleared here.
+	cars[slot].reset(_grid_slot(slot))
+	lap_system.reset_progress(slot)
+	_refresh_board()
 
 
-## The race is over. The car coasts out the finish for a beat with the controls
-## dead, then the wipe takes over. Freezing waits until the wipe actually starts,
-## so the car keeps rolling through the celebration rather than stopping on a dime.
-func _on_race_won() -> void:
+## Somebody took the race. The whole field coasts out its last corner for a beat
+## with the controls dead, then the wipe takes over. Freezing waits until the
+## wipe actually starts, so the cars keep rolling through the celebration rather
+## than stopping on a dime.
+func _on_race_won(_player: int) -> void:
 	_finishing = true
-	car.input_locked = true
+	for car in cars:
+		car.input_locked = true
 
 	await get_tree().create_timer(FINISH_RIDE_TIME).timeout
 
-	car.set_physics_process(false)
+	for car in cars:
+		car.set_physics_process(false)
 	transition.play()
 
 
 ## The new track is fully revealed. Hand control back and re-arm for the next win.
 func _on_transition_finished() -> void:
-	car.set_physics_process(true)
-	car.input_locked = false
+	for car in cars:
+		car.set_physics_process(true)
+		car.input_locked = false
 	_finishing = false
 
 
@@ -124,26 +274,35 @@ func _on_transition_finished() -> void:
 ## trigger fired from, which is not allowed to add the new barrier bodies.
 ##
 ## The lap system rebuilds its own checkpoints off track.rebuilt, so this only
-## has to deal with the parts arena owns: the car and its spawn point.
+## has to deal with the parts arena owns: the cars and their spawn point.
 func _swap_track() -> void:
 	track.generate()
 	spawn_point = track.get_spawn()
-	car.reset(spawn_point)
+	_reset_field()
 
 
-## Crossing the finish line banks whatever combo is pending, so a lap's drifts
-## are cashed into the score at the line rather than left on the link-window clock
-## or carried into the next track. Fires on every lap, the final one included.
-func _on_lap_finished(_lap: int, _laps: int) -> void:
-	drift_score.cash_in()
+## Crossing the finish line banks whatever combo that player had pending, so a
+## lap's drifts are cashed into the score at the line rather than left on the
+## link-window clock or carried into the next track. Fires on every lap, the
+## final one included.
+func _on_lap_finished(player: int, _lap: int, _laps: int) -> void:
+	scores[player].cash_in()
 
 
 ## Takes optional args it ignores, so the same handler can sit on the bare
-## rebuilt signal and on checkpoint_passed / lap_completed, which carry two each.
-func _on_lap_progress(_a = null, _b = null) -> void:
-	lap_readout.text = "LAP %d/%d   CP %d/%d" % [
-		mini(lap_system.lap + 1, lap_system.laps_to_win),
-		lap_system.laps_to_win,
-		lap_system.next_checkpoint,
-		lap_system.checkpoint_count(),
-	]
+## rebuilt signal and on checkpoint_passed / lap_completed, which carry three each.
+func _on_lap_progress(_a = null, _b = null, _c = null) -> void:
+	_refresh_board()
+
+
+func _refresh_board() -> void:
+	for slot in _lines.size():
+		var text := "LAP %d/%d   CP %d/%d" % [
+			mini(lap_system.lap_of(slot) + 1, lap_system.laps_to_win),
+			lap_system.laps_to_win,
+			lap_system.next_checkpoint_of(slot),
+			lap_system.checkpoint_count(),
+		]
+		if _coop:
+			text = "P%d   %s   %s" % [slot + 1, text, ScoreScript.grouped(scores[slot].score)]
+		_lines[slot].text = text
