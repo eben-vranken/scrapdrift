@@ -97,6 +97,19 @@ var is_drifting := false
 ## the run plays itself out instead of being steered through the celebration.
 var input_locked := false
 
+## True from the wall tap until the car is put back on the line. A dead car is
+## invisible, holds still, and cannot crash a second time, so the wreck can lie
+## there for as long as the respawn takes without grinding along the barrier
+## re-firing the signal every frame. The car does not respawn itself: it only
+## knows how to die, and whoever spawned it decides when it comes back.
+var is_dead := false
+
+## The velocity the car was carrying when it died, kept because the crash clears
+## the live one. Whatever throws the wreckage reads it: debris thrown out of a
+## standstill reads as a firework, thrown along the last heading it reads as the
+## car itself coming apart.
+var death_velocity := Vector2.ZERO
+
 ## Which player's controls this car answers to, as an action name prefix such as
 ## "p0_". Godot's actions match every device at once, so in couch co-op each car
 ## reads a private copy of the driving actions bound to one pad; PlayerConfig
@@ -121,6 +134,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_dead:
+		# The wreck still runs its rumble down, so the hit does not carry over into
+		# the next life and swallow the first drift's chatter.
+		_crash_rumble_left = maxf(_crash_rumble_left - delta, 0.0)
+		return
+
 	# Locked out during the victory second: the car keeps its momentum and physics
 	# but the sticks read flat, so it coasts the finish rather than being driven.
 	var steer := 0.0
@@ -268,15 +287,35 @@ func _check_crash() -> void:
 			return
 
 
-## Rumble is armed before the signal goes out, because whatever handles the
-## crash is going to reset the car on the spot and that must not wipe the hit.
+## The car is written off here and nowhere else. Everything is put in its final
+## state before the signal goes out, so whatever is listening sees a wreck rather
+## than a car that is about to become one, and reads death_velocity for the throw.
+##
+## The body is not touched: it stays in the tree, on its layer, sitting where it
+## died. Nothing collides with it, since cars only mask the walls, and holding
+## the transform is what lets the wreckage and the lost-combo pop stay pinned to
+## the spot the run actually ended on.
 func _crash() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	death_velocity = velocity
+
 	_crash_rumble_left = crash_rumble_duration
 	_shake(crash_rumble, crash_rumble, crash_rumble_duration)
+
+	speed = 0.0
+	velocity = Vector2.ZERO
+	is_drifting = false
+	# The explosion is what is on screen from here. The car is gone.
+	visible = false
+
 	crashed.emit()
 
 
 func reset(to: Transform2D) -> void:
+	is_dead = false
+	visible = true
 	global_transform = to
 	travel_yaw = global_rotation
 	drift_angle = 0.0

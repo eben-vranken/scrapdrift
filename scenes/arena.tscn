@@ -32,6 +32,8 @@ script = ExtResource("3_track")
 
 [node name="Scores" type="Node" parent="." unique_id=505923001]
 
+[node name="Effects" type="Node2D" parent="." unique_id=1194806352]
+
 [node name="Popups" type="Node2D" parent="." unique_id=1927772597]
 
 [node name="LapSystem" type="Node" parent="." unique_id=1782004313]

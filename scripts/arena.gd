@@ -4,10 +4,10 @@ extends Node2D
 ## racing it. Press respawn to put the field back on the start line.
 ##
 ## Everything that belongs to a single car is spawned here, per player, rather
-## than sitting in the scene: the car itself, its rubber, its drift score and the
-## text thrown off it. The scene only holds the layers they go into, which is
-## what keeps the draw order right no matter how many players there are: rubber
-## under the cars, popups over them.
+## than sitting in the scene: the car itself, its rubber, its drift score, the
+## wreckage it leaves and the text thrown off it. The scene only holds the layers
+## they go into, which is what keeps the draw order right no matter how many
+## players there are: rubber under the cars, wreckage and popups over them.
 ##
 ## The camera frames the whole circuit at once, which is the reason couch co-op
 ## needs nothing else from the view. There is no split screen because there is
@@ -23,11 +23,13 @@ const ScoreScript := preload("res://scripts/drift_score.gd")
 const PopupsScript := preload("res://scripts/drift_popups.gd")
 const SkidScript := preload("res://scripts/skid_marks.gd")
 const LapSystemScript := preload("res://scripts/lap_system.gd")
+const ExplosionScript := preload("res://scripts/explosion.gd")
 
 @onready var track := $Track
 @onready var skid_layer := $SkidLayer
 @onready var cars_root := $Cars
 @onready var scores_root := $Scores
+@onready var effects_root := $Effects
 @onready var popups_root := $Popups
 @onready var lap_system: LapSystemScript = $LapSystem
 @onready var transition := $ScreenTransition
@@ -38,6 +40,13 @@ const LapSystemScript := preload("res://scripts/lap_system.gd")
 ## How long the field coasts, uncontrolled, between the win and the wipe
 ## starting. Long enough to watch the run land; short enough not to drag.
 const FINISH_RIDE_TIME := 1.0
+
+## How long a wreck lies there before that player is put back on the line. The
+## crash is the punishment, and an instant respawn hands the car back before the
+## player has registered losing it: the pause is what makes a wall tap land as a
+## mistake rather than a stutter. Long enough for the blast to play out, short
+## enough that the other three are not left waiting on it.
+const RESPAWN_DELAY := 1.1
 
 ## The starting grid, in the spawn transform's own space: x runs down the track,
 ## y across it. Two by two, far enough apart that nobody spawns inside anybody
@@ -64,6 +73,9 @@ var _finishing := false
 var cars: Array[CarScript] = []
 var scores: Array[ScoreScript] = []
 var _skids: Array[SkidScript] = []
+## Each player's paint, in grid order. Kept because the wreckage is thrown in it,
+## and a car that has already blown up is no longer showing what colour it was.
+var _colors: Array[Color] = []
 ## One line of the lap board per player, in grid order.
 var _lines: Array[Label] = []
 ## A crowd, rather than one player with the screen to themselves. Decides which
@@ -155,6 +167,7 @@ func _build_field() -> void:
 		car.reset(_grid_slot(slot))
 		car.crashed.connect(_on_car_crashed.bind(slot))
 		cars.append(car)
+		_colors.append(color)
 
 		var skids := SkidScript.new()
 		skids.car = car
@@ -226,21 +239,49 @@ func _on_score_changed(total: int, slot: int) -> void:
 	settle.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
+## A wall tap ends that player's lap. The car takes itself off the board the
+## moment it hits, so all of this is about what is left behind: the wreckage, the
+## progress that just went with it, and putting the player back on the line once
+## the blast has played out.
+##
+## The combo is not dealt with here; that player's score watches the same signal
+## and drops it on its own. The lap system does not watch it at all, since a
+## shared signal cannot say which of four cars sent it, so the pending
+## checkpoints are cleared from here.
 func _on_car_crashed(slot: int) -> void:
-	# A crash during the victory second stays a crash: the race is already over,
-	# so leave the car where it died rather than snapping it back to the line.
-	# Freeze it on the spot too, or it would sit against the wall re-crashing
-	# every frame. The wipe is moments away and will clear it.
-	if _finishing:
-		cars[slot].set_physics_process(false)
-		return
-	# Placeholder for the real instant-death handling. The combo is not dealt with
-	# here: that player's score watches the same signal and drops it on its own.
-	# The lap system does not watch it at all, since a shared signal cannot say
-	# which of four cars sent it, so the pending checkpoints are cleared here.
-	cars[slot].reset(_grid_slot(slot))
+	var car := cars[slot]
+	_explode(slot)
 	lap_system.reset_progress(slot)
 	_refresh_board()
+
+	# A crash during the victory second stays a crash: the race is already over,
+	# so the wreck is left where it lies rather than being put back on a line
+	# nobody is racing from. The wipe is moments away and will clear it.
+	if _finishing:
+		return
+
+	await get_tree().create_timer(RESPAWN_DELAY).timeout
+
+	# Anything that put the field back while the wreck was burning has already
+	# revived this car: the respawn button, a regenerate, or the wipe between
+	# tracks. A second reset here would snatch a car that is already driving off
+	# the line, so the wait only counts if the car is still dead when it ends.
+	if not car.is_dead or _finishing:
+		return
+	car.reset(_grid_slot(slot))
+
+
+## Throws one car's worth of wreckage where it died, in that player's paint and
+## along the heading it was carrying. Lives on its own layer above the cars, so
+## the blast covers the wreck rather than the wreck showing through it, and frees
+## itself once it has burnt out.
+func _explode(slot: int) -> void:
+	var car := cars[slot]
+	var blast := ExplosionScript.new()
+	blast.color = _colors[slot]
+	blast.momentum = car.death_velocity
+	effects_root.add_child(blast)
+	blast.global_position = car.global_position
 
 
 ## Somebody took the race. The whole field coasts out its last corner for a beat
@@ -281,11 +322,20 @@ func _swap_track() -> void:
 	_reset_field()
 
 
-## Crossing the finish line banks whatever combo that player had pending, so a
-## lap's drifts are cashed into the score at the line rather than left on the
-## link-window clock or carried into the next track. Fires on every lap, the
-## final one included.
-func _on_lap_finished(player: int, _lap: int, _laps: int) -> void:
+## Finishing the track banks whatever combo that player had pending. Crossing the
+## line on any earlier lap does not: the chain stays open over the start line, so
+## a combo can be held across the whole track instead of being closed off three
+## times on the way through it. That is the point of moving it here. A chain
+## carried from the first corner to the last is worth far more than three lap-long
+## ones, and it is worth exactly nothing if the final lap ends in the wall.
+##
+## The laps that no longer bank do not strand anything. A pending combo lands
+## itself as soon as the link window runs out, which is what happens within a
+## second or two of any lap that was not still being drifted at the line, so this
+## is only ever deciding when a live chain is closed early.
+func _on_lap_finished(player: int, lap: int, laps: int) -> void:
+	if lap < laps:
+		return
 	scores[player].cash_in()
 
 

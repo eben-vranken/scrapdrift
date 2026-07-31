@@ -253,9 +253,9 @@ func _bank() -> void:
 
 
 ## Banks the pending combo right now, wherever the link window happens to sit.
-## For a hard stop like crossing the finish line: the run's drifts are cashed into
-## the score then rather than left hanging on the clock or carried to the next
-## track. A no-op when there is nothing pending.
+## For a hard stop like finishing a track: the whole track's drifting is cashed
+## into the score there rather than left hanging on the clock or carried into the
+## next one. A no-op when there is nothing pending.
 func cash_in() -> void:
 	_bank()
 
