@@ -27,6 +27,7 @@ polygon = PackedVector2Array(-480, -270, 480, -270, 480, 270, -480, 270)
 script = ExtResource("3_track")
 
 [node name="SkidLayer" type="Node2D" parent="." unique_id=676621785]
+visible = false
 
 [node name="Cars" type="Node2D" parent="." unique_id=418718834]
 

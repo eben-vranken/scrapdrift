@@ -66,7 +66,7 @@ var car: CarScript
 @export_group("Budget")
 ## Oldest trails are dropped past this. Two wheels means a slide costs at least
 ## two, so this is roughly half the number of slides kept.
-@export var max_marks := 96
+@export var max_marks := 256
 
 var _car: CarScript
 ## Every mark still counted against the budget, oldest first. A dropped trail
