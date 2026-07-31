@@ -25,6 +25,8 @@ const PopTextScript := preload("res://scripts/pop_text.gd")
 const ScoreScript := preload("res://scripts/drift_score.gd")
 const CarScript := preload("res://scripts/car.gd")
 
+const PIXEL_FONT := preload("uid://duj05v2dyisf6")
+
 ## Directions a pop may be thrown, in degrees off the car's travel line. Nothing
 ## inside roughly a 70 degree half-cone ahead, which is the ground the car covers
 ## before the text has finished appearing.
@@ -62,9 +64,11 @@ var score: ScoreScript
 @export var edge_margin := 8.0
 
 @export_group("Type")
-## Optional pixel font for every pop and the meter. Left null the project default
-## is used, which is legible but soft against the rest of the art.
-@export var font: Font = null
+## The face every pop and the meter are set in. Defaults to the pixel font rather
+## than to null, because the arena builds this node in code and an export nothing
+## assigns would otherwise leave the shouting on the soft engine default forever.
+## Overwrite it on the instance to set one player's text apart.
+@export var font: Font = PIXEL_FONT
 ## Mid-drift tier shouts. The loud ones.
 @export var tier_font_size := 13
 ## The "+340" a finished drift is worth.
